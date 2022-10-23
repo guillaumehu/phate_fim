@@ -16,15 +16,11 @@ from src.models.lit_losses import phate_loss, loss_dist
 from src.models.lit_encoder import LitAutoencoder
 
 
-# TODO experiment name.
 # TODO add early stopping https://pytorch-lightning.readthedocs.io/en/#stable/common/early_stopping.html
 # TODO add seeds to dataset and model
 
-# NOTE NOTE NOTE training is not working anymore... try only # phate dist, then embedding.
-
 
 # Hyperparameters
-
 
 parser = ArgumentParser()
 
