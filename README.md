@@ -1,7 +1,11 @@
 phate_fim
 ==============================
 
-Fisher Information Metric with PHATE
+Fisher Information Metric with PHATE.
+
+To train the encoder run train_model.py. For example, on the sphere in 5D for 100 epochs, with the PHATE kernel, an embedding loss, and without the Wandb Logger run
+
+ `python train_model.py --n_dim 5 --max_epochs 100 --kernel_type phate --loss_emb --no-wandb`.
 
 Project Organization
 ------------
