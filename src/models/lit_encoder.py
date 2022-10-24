@@ -77,7 +77,7 @@ class LitAutoencoder(pl.LightningModule):
         return torch.optim.AdamW(self.parameters(), lr=self.lr)
 
     def training_step(self, batch, batch_idx):
-        sample, _ = batch
+        sample, target = batch
 
         noise = self.scale * torch.randn(sample.size()).to(
             sample.device
@@ -85,9 +85,10 @@ class LitAutoencoder(pl.LightningModule):
         encode_sample = self.forward(sample + noise)
 
         loss_d, loss_e = loss_dist(
-            encode_sample, sample, kernel_type=self.kernel_type, loss_emb=self.loss_emb, bandwidth=self.bandwidth, t=self.t
+            encode_sample, sample, kernel_type=self.kernel_type, loss_emb=self.loss_emb, bandwidth=self.bandwidth, t=self.t, target = target
         )
-        loss = loss_d + loss_e
+        
+        loss = loss_d + loss_e # Loss distances and loss embedding
         tensorboard_log = {"train_loss": loss}
         self.log("training_losses", {"loss_d": loss_d, "loss_e": loss_e, "loss": loss})
         return {"loss": loss, "log": tensorboard_log}
