@@ -17,7 +17,6 @@ from src.models.lit_encoder import LitAutoencoder
 
 
 # TODO add early stopping https://pytorch-lightning.readthedocs.io/en/#stable/common/early_stopping.html
-# TODO add seeds to dataset and model
 
 
 # Hyperparameters
@@ -43,6 +42,8 @@ dict_args = vars(args)
 
 
 if __name__ == "__main__":
+    seed = torch.randint(0, 1000, size=(1,))
+    pl.utilities.seed.seed_everything(seed=seed)
 
     if args.run_name is None:
         args.run_name = f"data_" + args.dataset + ""

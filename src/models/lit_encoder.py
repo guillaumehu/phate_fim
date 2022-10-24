@@ -14,8 +14,6 @@ from src.models.lit_losses import phate_loss, loss_dist
 
 
 # TODO add early stopping https://pytorch-lightning.readthedocs.io/en/#stable/common/early_stopping.html
-# TODO add seeds to dataset and model
-# TODO add diffusion time, scale, and noise_scale param.
 
 
 class LitAutoencoder(pl.LightningModule):
@@ -27,6 +25,9 @@ class LitAutoencoder(pl.LightningModule):
         lr=0.001,
         kernel_type="phate",
         loss_emb=True,
+        bandwidth=10,
+        t=1,
+        scale=0.05,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -39,9 +40,13 @@ class LitAutoencoder(pl.LightningModule):
             else:
                 encoder.append(getattr(nn, activation)())
         self.encoder = nn.Sequential(*encoder)
+
         self.lr = lr
         self.kernel_type = kernel_type
         self.loss_emb = loss_emb
+        self.bandwidth=bandwidth
+        self.t=t
+        self.scale = scale
         # decoder=[]
         # for i0,i1 in zip(decoder_layer,decoder_layer[1:]):
         #   decoder.append(nn.Linear(i0, i1))
@@ -74,15 +79,13 @@ class LitAutoencoder(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         sample, _ = batch
 
-        noise = 0.05 * torch.randn(sample.size()).to(
+        noise = self.scale * torch.randn(sample.size()).to(
             sample.device
-        )  # TODO noise scale in param
+        ) 
         encode_sample = self.forward(sample + noise)
 
-        # loss_d, loss_e = phate_loss(encode_sample, sample, loss_emb)
-        # loss = loss_d + loss_e
         loss_d, loss_e = loss_dist(
-            encode_sample, sample, kernel_type=self.kernel_type, loss_emb=self.loss_emb
+            encode_sample, sample, kernel_type=self.kernel_type, loss_emb=self.loss_emb, bandwidth=self.bandwidth, t=self.t
         )
         loss = loss_d + loss_e
         tensorboard_log = {"train_loss": loss}
