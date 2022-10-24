@@ -7,6 +7,8 @@ To train the encoder run train_model.py. For example, on the sphere in 5D for 10
 
  `python train_model.py --n_dim 5 --max_epochs 100 --kernel_type phate --loss_emb --no-wandb`.
 
+ To train in a notebook, see the example [here](https://github.com/guillaumehu/phate_fim/blob/main/notebooks/gh-train-template.ipynb).
+
 Project Organization
 ------------
 
