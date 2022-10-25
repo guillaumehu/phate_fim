@@ -1,10 +1,25 @@
 import sys
+import os
 from tabnanny import verbose
 import numpy as np
 import phate
 import torch
 from torch.utils.data import Dataset
 import scipy
+import scanpy as sc
+
+
+def make_live_seq(PATH, emb_dim=20, label=False):
+    adata_liveseq = sc.read_h5ad(os.path.join(PATH,"Liveseq.h5ad"))
+    #adata_rnaseq = sc.read_h5ad(os.path.join(PATH,"scRNA.h5ad"))
+    X = adata_liveseq.X
+    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim)
+    phate_live_seq = phate_operator.fit_transform(X)
+    
+    if label:
+        return torch.tensor(X, requires_grad=True).float(), phate_live_seq, adata_liveseq.obs['celltype_treatment']
+    else:
+        return torch.tensor(X, requires_grad=True).float(), phate_live_seq
 
 
 def make_n_sphere(n_obs=150, dim=3, emb_dim=2):
@@ -49,7 +64,7 @@ class torch_dataset(Dataset):
         return sample, target
 
 
-def train_dataloader(name, n_obs, dim, emb_dim, batch_size):
+def train_dataloader(name, n_obs, dim, emb_dim, batch_size, PATH=None):
     """Create a Torch data loader for training."""
 
     # TODO: add warning if `name` is not implemented.
@@ -63,6 +78,14 @@ def train_dataloader(name, n_obs, dim, emb_dim, batch_size):
 
     elif name.lower() == "tree":
         X, Y = make_tree(n_obs, dim, emb_dim)
+        Y = torch.tensor(Y).float()
+        train_dataset = torch_dataset(X, Y)
+        train_loader = torch.utils.data.DataLoader(
+            dataset=train_dataset, batch_size=batch_size, shuffle=True
+        )
+
+    elif name.lower() == "live_seq":
+        X, Y = make_live_seq(PATH, emb_dim, label=False)
         Y = torch.tensor(Y).float()
         train_dataset = torch_dataset(X, Y)
         train_loader = torch.utils.data.DataLoader(
