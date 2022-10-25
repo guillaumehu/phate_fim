@@ -43,6 +43,7 @@ dict_args = vars(args)
 
 if __name__ == "__main__":
     seed = torch.randint(0, 1000, size=(1,))
+    emb_dim = args.encoder_layer[-1]
     pl.utilities.seed.seed_everything(seed=seed)
 
     if args.run_name is None:
@@ -54,7 +55,7 @@ if __name__ == "__main__":
         logger = False
     # deterministic=True for reproducibility
     train_loader = train_dataloader(
-        args.dataset, args.n_obs, args.n_dim, args.batch_size
+        args.dataset, args.n_obs, args.n_dim, emb_dim, args.batch_size
     )
 
     # To test

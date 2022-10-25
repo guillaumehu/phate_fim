@@ -5,7 +5,13 @@ import torch
 
 
 def loss_dist(
-    encode_sample, sample, target, kernel_type="phate", loss_emb=True, bandwidth=10, t=1,
+    encode_sample,
+    sample,
+    target,
+    kernel_type="phate",
+    loss_emb=True,
+    bandwidth=10,
+    t=1,
 ):
     """ "Compute the distance loss, either using the Gaussian kernel or PHATE's alpha-decay."""
     loss_e = torch.tensor(0.0).float().to(sample.device)
