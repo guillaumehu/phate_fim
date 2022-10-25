@@ -18,7 +18,7 @@ def loss_dist(
     if kernel_type.lower() == "phate":
         _, dim = encode_sample.shape
         sample_np = sample.detach().cpu().numpy()
-        phate_op = phate.PHATE(n_components=dim, verbose=False, n_landmark=10000).fit(
+        phate_op = phate.PHATE(n_components=dim, verbose=False, n_landmark=10000, n_pca=19).fit(
             sample_np
         )
         phate_dist = torch.tensor(phate_op.diff_potential).float().to(sample.device)
