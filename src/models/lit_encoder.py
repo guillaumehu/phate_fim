@@ -21,6 +21,8 @@ class LitAutoencoder(pl.LightningModule):
         self,
         input_dim,
         encoder_layer=[10, 10, 10],
+        decoder_layer=[10, 10, 10]
+        decoder = False
         activation="ReLU",
         lr=0.001,
         kernel_type="phate",
@@ -46,17 +48,22 @@ class LitAutoencoder(pl.LightningModule):
         self.bandwidth = bandwidth
         self.t = t
         self.scale = scale
-        # decoder=[]
-        # for i0,i1 in zip(decoder_layer,decoder_layer[1:]):
-        #   decoder.append(nn.Linear(i0, i1))
-        #   decoder.append(getattr(nn, activation)())
-        # self.decoder = nn.Sequential(*decoder).to(device)
+        
+        if decoder:
+            decoder_layer.insert(0, input_dim)
+            decoder=[]
+            for i0,i1 in zip(decoder_layer,decoder_layer[1:]):
+               decoder.append(nn.Linear(i0, i1))
+               decoder.append(getattr(nn, activation)())
+            print(decoder)
+            self.decoder = nn.Sequential(*decoder).to(device)
 
-    # def encode(self,x):
-    #   return self.encoder(x)
+    def encode(self,x):
+       return self.encoder(x)
 
-    # def decoder(self,x):
-    #   return self.decoder(x)
+    def decoder(self,x):
+       return self.decoder(x)
+    
     @staticmethod
     def add_model_specific_args(parent_parser):
         parser = parent_parser.add_argument_group("LitModel")
@@ -71,6 +78,7 @@ class LitAutoencoder(pl.LightningModule):
         parser.add_argument(
             "--loss_emb", default=True, action=argparse.BooleanOptionalAction
         )
+        parser.add_argument("--decoder", action='store_true')
         return parent_parser
 
     def forward(self, x):
