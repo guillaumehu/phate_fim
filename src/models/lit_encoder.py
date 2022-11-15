@@ -21,8 +21,8 @@ class LitAutoencoder(pl.LightningModule):
         self,
         input_dim,
         encoder_layer=[10, 10, 10],
-        decoder_layer=[10, 10, 10]
-        decoder = False
+        decoder_layer=[10, 10, 10],
+        decoder = False,
         activation="ReLU",
         lr=0.001,
         kernel_type="phate",
