@@ -51,7 +51,7 @@ class FIM_noemb:
                     jac[:, :, i] * jac[:, :, j] * torch.exp(self.log_p)
                 )
 
-        fim = torch.mean(prod, dim=3)
+        fim = torch.sum(prod, dim=3)
 
         return fim
 
