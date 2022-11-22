@@ -5,7 +5,7 @@ import pytorch_lightning as pl
 import argparse
 
 sys.path.append("../../")
-from src.models.lit_losses import phate_loss, loss_dist
+from src.models.lit_losses import loss_dist
 
 # TODO: add train file, and function to train only one epoch.
 #       - with PHATE distance (DONE)
@@ -21,12 +21,13 @@ class LitAutoencoder(pl.LightningModule):
         self,
         input_dim,
         encoder_layer=[10, 10, 10],
-        decoder_layer=[10, 10, 10]
-        decoder = False
+        decoder_layer=[10, 10, 10],
+        decoder = False,
         activation="ReLU",
         lr=0.001,
         kernel_type="phate",
         loss_emb=True,
+        loss_dist=True,
         bandwidth=10,
         t=1,
         scale=0.05,
@@ -45,6 +46,7 @@ class LitAutoencoder(pl.LightningModule):
         self.lr = lr
         self.kernel_type = kernel_type
         self.loss_emb = loss_emb
+        self.loss_dist = loss_dist
         self.bandwidth = bandwidth
         self.t = t
         self.scale = scale
@@ -99,12 +101,14 @@ class LitAutoencoder(pl.LightningModule):
             sample,
             kernel_type=self.kernel_type,
             loss_emb=self.loss_emb,
+            loss_dist=self.loss_dist,
             bandwidth=self.bandwidth,
             t=self.t,
             target=target,
         )
 
-        loss = loss_d + loss_e  # Loss distances and loss embedding
+        loss = loss_e + loss_d  # Loss distances and loss embedding
         tensorboard_log = {"train_loss": loss}
         self.log("training_losses", {"loss_d": loss_d, "loss_e": loss_e, "loss": loss})
         return {"loss": loss, "log": tensorboard_log}
+

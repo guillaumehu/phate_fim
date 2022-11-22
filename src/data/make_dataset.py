@@ -33,20 +33,21 @@ def make_n_sphere(n_obs=150, dim=3, emb_dim=2):
     # else:
     phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim)
     phate_sphere = phate_operator.fit_transform(X)
-    phate_sphere = scipy.stats.zscore(phate_sphere) 
+    #phate_sphere = scipy.stats.zscore(phate_sphere) 
 
     return torch.tensor(X, requires_grad=True).float(), phate_sphere
 
 
 def make_tree(n_obs=150, dim=10, emb_dim=2):
     """Make a tree dataset. Return a Tensor `requires_grad=True` and tree_phate"""
-    tree_data, _ = phate.tree.gen_dla(n_dim=dim, n_branch=5, branch_length=30)
+    n_obs = int(n_obs/5)
+    tree_data, _ = phate.tree.gen_dla(n_dim=dim, n_branch=5, branch_length=n_obs)
     # if train_dataset:
     #     tree_phate = None
     # else:
     phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim)
     tree_phate = phate_operator.fit_transform(tree_data)
-    tree_phate = scipy.stats.zscore(tree_phate) 
+    #tree_phate = scipy.stats.zscore(tree_phate) 
 
     return torch.tensor(tree_data, requires_grad=True).float(), tree_phate
 
