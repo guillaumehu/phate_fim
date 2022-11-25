@@ -31,6 +31,7 @@ class LitAutoencoder(pl.LightningModule):
         bandwidth=10,
         t=1,
         scale=0.05,
+        knn=5,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -50,6 +51,7 @@ class LitAutoencoder(pl.LightningModule):
         self.bandwidth = bandwidth
         self.t = t
         self.scale = scale
+        self.knn = knn
         
         if decoder:
             decoder_layer.insert(0, input_dim)
@@ -105,6 +107,7 @@ class LitAutoencoder(pl.LightningModule):
             bandwidth=self.bandwidth,
             t=self.t,
             target=target,
+            knn=self.knn,
         )
 
         loss = loss_e + loss_d  # Loss distances and loss embedding
