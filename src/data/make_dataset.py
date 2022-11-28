@@ -9,20 +9,20 @@ import scipy
 import scanpy as sc
 
 
-def make_live_seq(PATH, emb_dim=20, label=False):
+def make_live_seq(PATH, emb_dim=20, knn=5, label=False):
     adata_liveseq = sc.read_h5ad(os.path.join(PATH,"Liveseq.h5ad"))
     #adata_rnaseq = sc.read_h5ad(os.path.join(PATH,"scRNA.h5ad"))
     X = adata_liveseq.X
-    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim)
+    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim, knn=knn)
     phate_live_seq = phate_operator.fit_transform(X)
-    
+    phate_live_seq = scipy.stats.zscore(phate_live_seq) 
     if label:
         return torch.tensor(X, requires_grad=True).float(), phate_live_seq, adata_liveseq.obs['celltype_treatment']
     else:
         return torch.tensor(X, requires_grad=True).float(), phate_live_seq
 
 
-def make_n_sphere(n_obs=150, dim=3, emb_dim=2):
+def make_n_sphere(n_obs=150, dim=3, emb_dim=2, knn=5):
     """Make an N-sphere with Muller's method. return a Tensor `requires_grad=True`."""
     norm = np.random.normal
     normal_deviates = norm(size=(dim, n_obs))
@@ -31,23 +31,23 @@ def make_n_sphere(n_obs=150, dim=3, emb_dim=2):
     # if train_dataset:
     #     phate_sphere = None
     # else:
-    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim)
+    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim, knn=knn)
     phate_sphere = phate_operator.fit_transform(X)
-    #phate_sphere = scipy.stats.zscore(phate_sphere) 
+    phate_sphere = scipy.stats.zscore(phate_sphere) 
 
     return torch.tensor(X, requires_grad=True).float(), phate_sphere
 
 
-def make_tree(n_obs=150, dim=10, emb_dim=2):
+def make_tree(n_obs=150, dim=10, emb_dim=2, knn=5):
     """Make a tree dataset. Return a Tensor `requires_grad=True` and tree_phate"""
     n_obs = int(n_obs/5)
     tree_data, _ = phate.tree.gen_dla(n_dim=dim, n_branch=5, branch_length=n_obs)
     # if train_dataset:
     #     tree_phate = None
     # else:
-    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim)
+    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim, knn=knn)
     tree_phate = phate_operator.fit_transform(tree_data)
-    #tree_phate = scipy.stats.zscore(tree_phate) 
+    tree_phate = scipy.stats.zscore(tree_phate) 
 
     return torch.tensor(tree_data, requires_grad=True).float(), tree_phate
 
@@ -65,12 +65,12 @@ class torch_dataset(Dataset):
         return sample, target
 
 
-def train_dataloader(name, n_obs, dim, emb_dim, batch_size, PATH=None):
+def train_dataloader(name, n_obs, dim, emb_dim, batch_size, knn, PATH=None):
     """Create a Torch data loader for training."""
 
     # TODO: add warning if `name` is not implemented.
     if name.lower() == "sphere":
-        X, Y = make_n_sphere(n_obs, dim, emb_dim)
+        X, Y = make_n_sphere(n_obs, dim, emb_dim, knn)
         Y = torch.tensor(Y).float()
         train_dataset = torch_dataset(X, Y)
         train_loader = torch.utils.data.DataLoader(
@@ -78,7 +78,7 @@ def train_dataloader(name, n_obs, dim, emb_dim, batch_size, PATH=None):
         )
 
     elif name.lower() == "tree":
-        X, Y = make_tree(n_obs, dim, emb_dim)
+        X, Y = make_tree(n_obs, dim, emb_dim, knn)
         Y = torch.tensor(Y).float()
         train_dataset = torch_dataset(X, Y)
         train_loader = torch.utils.data.DataLoader(
@@ -86,7 +86,7 @@ def train_dataloader(name, n_obs, dim, emb_dim, batch_size, PATH=None):
         )
 
     elif name.lower() == "live_seq":
-        X, Y = make_live_seq(PATH, emb_dim, label=False)
+        X, Y = make_live_seq(PATH, emb_dim, knn, label=False)
         Y = torch.tensor(Y).float()
         train_dataset = torch_dataset(X, Y)
         train_loader = torch.utils.data.DataLoader(
