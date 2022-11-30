@@ -59,3 +59,67 @@ class FIM_noemb:
         fim = self.fit(X)
         V = np.sqrt(np.linalg.det(fim.detach().cpu()))
         return V
+    
+class FIM:
+    def __init__(self,X,fn,n_obs,in_dims,out_dims,X_out):
+        self.X = X
+        self.fn = fn
+        self.n_obs = n_obs
+        self.in_dims = in_dims
+        self.out_dims = out_dims
+        self.X_out = X_out
+        
+    def fit(self):
+        "Computes Fisher information metric"
+        
+        #Initializae Jacobian matrix
+        Jacob  = np.zeros((self.n_obs,self.out_dims,self.in_dims))
+        
+        #Get Jacobian of each sample
+        for i in range(self.n_obs):
+            X_sample = self.X[i].float().cuda()    
+            J = torch.autograd.functional.jacobian(fn.cuda(),X_sample).squeeze()
+            Jacob[i,:,:] = J.cpu().detach().numpy()
+
+        #Get FIM of each sample
+        FIMetric = np.zeros((self.n_obs,self.in_dims,self.in_dims)) #FIM is square matrix of size of original dimensions
+        for k in range(self.n_obs):
+            prod = np.empty((self.in_dims,self.in_dims)) #Initialize empty FIM
+
+            #Compute FIM
+            for i in range(self.in_dims):
+                for j in range(self.in_dims):
+                    prod[i,j] = np.sum(Jacob[k,:,i] * Jacob[k,:,j] *np.exp(self.X_out[k,:]))
+
+            FIMetric[k,:,:] = prod
+            
+        return FIMetric
+    
+    def get_volume(self):
+        "Computes Volume"
+        fim = self.fit()
+        V = np.sqrt(np.abs(np.linalg.det(fim)))
+        return V
+    
+    def get_eigs(self):
+        
+        "Eigendecomposition of FIM"
+        fim = self.fit()
+        FIMeigvec = np.zeros((self.n_obs,self.in_dims,self.in_dims))
+        FIMeigval = np.zeros((self.n_obs,self.in_dims))
+        for i in range(self.n_obs):
+            eigval, eigvec = np.linalg.eig(fim[i])
+            FIMeigvec[i,:,:] = eigvec
+            FIMeigval[i,:] = eigval
+        return FIMeigval, FIMeigvec
+    
+  
+    def get_quadform(self,vone):
+        "Computes Quadratic form with input vector of size (1,self.in_dims)"
+        
+        fim = self.fit()
+        quadforms = np.zeros((self.n_obs))
+        for i in range(self.n_obs):
+            quadforms[i] = vone @ fim[i,:,:] @ vone.T
+        
+        return quadforms

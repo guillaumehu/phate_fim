@@ -5,7 +5,8 @@ import pytorch_lightning as pl
 import argparse
 
 sys.path.append("../../")
-from src.models.lit_losses import loss_dist
+from src.models.lit_losses import loss_fn
+
 
 # TODO: add train file, and function to train only one epoch.
 #       - with PHATE distance (DONE)
@@ -20,20 +21,24 @@ class LitAutoencoder(pl.LightningModule):
     def __init__(
         self,
         input_dim,
+        emb_dim,
         encoder_layer=[10, 10, 10],
         decoder_layer=[10, 10, 10],
-        decoder = False,
         activation="ReLU",
         lr=0.001,
         kernel_type="phate",
-        loss_emb=True,
+        loss_emb=False,
         loss_dist=True,
+        loss_rec=False,
         bandwidth=10,
         t=1,
         scale=0.05,
         knn=5,
+        logp=False,
         **kwargs,
     ) -> None:
+        
+        #Specify encoder
         super().__init__()
         encoder_layer.insert(0, input_dim)
         encoder = []
@@ -44,6 +49,17 @@ class LitAutoencoder(pl.LightningModule):
                 encoder.append(getattr(nn, activation)())
         self.encoder = nn.Sequential(*encoder)
 
+        #Specify decoder
+        
+        decoder_layer.insert(0, emb_dim)
+        decoder=[]
+        for i0,i1 in zip(decoder_layer,decoder_layer[1:]):
+           decoder.append(nn.Linear(i0, i1))
+           decoder.append(getattr(nn, activation)())
+        print(decoder)
+        self.decoder = nn.Sequential(*decoder)
+            
+ 
         self.lr = lr
         self.kernel_type = kernel_type
         self.loss_emb = loss_emb
@@ -52,21 +68,22 @@ class LitAutoencoder(pl.LightningModule):
         self.t = t
         self.scale = scale
         self.knn = knn
+        self.loss_rec = loss_rec
+        self.logp = logp
         
-        if decoder:
-            decoder_layer.insert(0, input_dim)
-            decoder=[]
-            for i0,i1 in zip(decoder_layer,decoder_layer[1:]):
-               decoder.append(nn.Linear(i0, i1))
-               decoder.append(getattr(nn, activation)())
-            print(decoder)
-            self.decoder = nn.Sequential(*decoder)
+    def decode(self,x):
+        return self.decoder(x)
 
     def encode(self,x):
-       return self.encoder(x)
+        return self.encoder(x)
 
-    def decoder(self,x):
-       return self.decoder(x)
+    def forward(self,x):
+        if self.logp:
+            x = torch.log(self.encoder(x) + 1e-6)
+        else:
+            x = self.encoder(x) # NOTE: 1e-6 to avoid log of 0. 
+        return x #self.decoder(x)
+
     
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -85,9 +102,6 @@ class LitAutoencoder(pl.LightningModule):
         parser.add_argument("--decoder", action='store_true')
         return parent_parser
 
-    def forward(self, x):
-        x = self.encoder(x)
-        return x  # self.decoder(x)
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.lr)
@@ -96,21 +110,34 @@ class LitAutoencoder(pl.LightningModule):
         sample, target = batch
 
         noise = self.scale * torch.randn(sample.size()).to(sample.device)
-        encode_sample = self.forward(sample + noise)
+        encoded_sample = self.encode(sample + noise)
+        decoded_sample = self.decode(encoded_sample)
 
-        loss_d, loss_e = loss_dist(
-            encode_sample,
-            sample,
+        if self.loss_rec:
+            decoded_sample = self.decode(encoded_sample)
+        else:
+            decoded_sample = torch.tensor(0.0).float().to(sample.device)
+        
+        loss_d, loss_e, loss_r = loss_fn(
+            encoded_sample = encoded_sample,
+            decoded_sample = decoded_sample,
+            sample=sample,
+            target=target,
             kernel_type=self.kernel_type,
             loss_emb=self.loss_emb,
             loss_dist=self.loss_dist,
+            loss_recon = self.loss_rec,
             bandwidth=self.bandwidth,
             t=self.t,
-            target=target,
             knn=self.knn,
         )
+        
+        
+        loss = loss_e + loss_d + loss_r # Loss distances and loss embedding
+        
 
-        loss = loss_e + loss_d  # Loss distances and loss embedding
+    
+        
         tensorboard_log = {"train_loss": loss}
         self.log("training_losses", {"loss_d": loss_d, "loss_e": loss_e, "loss": loss})
         return {"loss": loss, "log": tensorboard_log}
@@ -121,16 +148,22 @@ class LitDistEncoder(pl.LightningModule):
     def __init__(
         self,
         input_dim,
+        emb_dim,
         encoder_layer=[10, 10, 10],
+        decoder_layer=[10, 10, 10],
         activation="ReLU",
         lr=0.001,
         kernel_type="phate",
+        loss_emb=False,
+        loss_dist=True,
+        loss_rec=False,
         bandwidth=10,
         t=1,
         scale=0.05,
         knn=5,
         **kwargs,
     ) -> None:
+        
         super().__init__()
         encoder_layer.insert(0, input_dim)
         encoder = []
@@ -141,16 +174,37 @@ class LitDistEncoder(pl.LightningModule):
                 encoder.append(getattr(nn, activation)())
         encoder.append(nn.Softmax(dim=1))
         self.encoder = nn.Sequential(*encoder)
+        
+       
+        decoder_layer.insert(0, emb_dim)
+        decoder=[]
+        for i0,i1 in zip(decoder_layer,decoder_layer[1:]):
+            decoder.append(nn.Linear(i0, i1))
+            decoder.append(getattr(nn, activation)())
+        print(decoder)
+        self.decoder = nn.Sequential(*decoder)
 
         self.lr = lr
         self.kernel_type = kernel_type
+        self.loss_emb = loss_emb
+        self.loss_dist = loss_dist
+        self.loss_rec = loss_rec
         self.bandwidth = bandwidth
         self.t = t
         self.scale = scale
         self.knn = knn
+        
+    def decode(self,x):
+        return self.decoder(x)
+    
+    def encode(self,x):
+        return self.encoder(x)
     
     def forward(self,x):
-       return torch.log(self.encoder(x) + 1e-6) # NOTE: 1e-6 to avoid log of 0. 
+        x = torch.log(self.encoder(x) + 1e-6) # NOTE: 1e-6 to avoid log of 0. 
+        return #self.decoder(x)
+    
+
     
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -176,21 +230,30 @@ class LitDistEncoder(pl.LightningModule):
         sample, target = batch
 
         noise = self.scale * torch.randn(sample.size()).to(sample.device)
-        encode_sample = self.forward(sample + noise)
+        encoded_sample = self.encode(sample + noise)
+        
+        
+        if self.loss_rec:
+            decoded_sample = self.decode(encoded_sample)
+        else:
+            decoded_sample = torch.tensor(0.0).float().to(sample.device)
 
-        loss_d, loss_e = loss_dist(
-            encode_sample,
-            sample,
+        loss_d, loss_e, loss_r = loss_fn(
+            encoded_sample = encoded_sample,
+            decoded_sample = decoded_sample,
+            sample = sample,
+            target = target,
             kernel_type=self.kernel_type,
-            loss_emb=False,
-            loss_dist=True,
+            loss_emb=self.loss_emb,
+            loss_dist=self.loss_dist,
+            loss_recon=self.loss_rec,
             bandwidth=self.bandwidth,
             t=self.t,
-            target=target,
             knn=self.knn,
         )
 
-        loss = loss_d  # Loss distance
+        print(loss_d)
+        loss = loss_d# + loss_e + loss_r # Loss distance
         tensorboard_log = {"train_loss": loss}
         self.log("training_losses", {"loss": loss})
         return {"loss": loss, "log": tensorboard_log}

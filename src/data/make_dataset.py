@@ -8,6 +8,28 @@ from torch.utils.data import Dataset
 import scipy
 import scanpy as sc
 
+def rotation_transform(
+    X : np.ndarray, # The input matrix, of size n x d (d is # dimensions)
+    tilt_angles # a list of d-1 values in [0,2pi] specifying how much to tilt in d-1 the xy, yz (...) planes
+):
+    # Tilt matrix into arbitrary dimensions
+    d = X.shape[1]
+    assert len(tilt_angles) == d - 1
+    # construct Tilting Matrices TM!
+    tilting_matrices_tm = []
+    for i in range(d-1):
+        A = np.eye(d)
+        A[i][i] = np.cos(tilt_angles[i])
+        A[i+1][i+1] = np.cos(tilt_angles[i])
+        A[i][i+1] = np.sin(tilt_angles[i])
+        A[i+1][i] = - np.sin(tilt_angles[i])
+        tilting_matrices_tm.append(A)
+    X_tilted = X
+    for tilter in tilting_matrices_tm:
+        # print(X_tilted)
+        X_tilted = X_tilted @ tilter
+    return X_tilted, tilting_matrices_tm
+
 
 def make_live_seq(PATH, emb_dim=20, knn=5, label=False):
     adata_liveseq = sc.read_h5ad(os.path.join(PATH,"Liveseq.h5ad"))
@@ -36,6 +58,29 @@ def make_n_sphere(n_obs=150, dim=3, emb_dim=2, knn=5):
     phate_sphere = scipy.stats.zscore(phate_sphere) 
 
     return torch.tensor(X, requires_grad=True).float(), phate_sphere
+
+
+
+def make_n_sphere_two(n_obs=150, dim=10,emb_dim=2,knn=5):
+    
+    sphere = [] #Create sphere in 3D
+    for i in range(n_obs):
+        x = np.random.normal(0,1,3)
+        sphere.append(x/(np.sqrt(np.sum(x**2))))
+
+    nsphere = np.array(sphere)
+    zerovec = np.zeros((n_obs,dim-3)) #add vector of zeros onto first 3 dimensions
+    highdsphere = np.concatenate((nsphere,zerovec),axis=1) #Create high-d sphere
+    
+    angles = list(np.repeat(90,highdsphere.shape[1]-1)) #can insert angle you wish to rotate sphere by
+    rotatesphere, _ = rotation_transform(highdsphere, angles)
+    
+    #run phate on rotated sphere
+    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim, knn=knn)
+    phate_sphere_rot = phate_operator.fit_transform(rotatesphere)
+    phate_sphere_rot = scipy.stats.zscore(phate_sphere_rot)
+    
+    return torch.tensor(rotatesphere, requires_grad=True).float(), phate_sphere_rot
 
 
 def make_tree(n_obs=150, dim=10, emb_dim=2, knn=5):
@@ -70,7 +115,7 @@ def train_dataloader(name, n_obs, dim, emb_dim, batch_size, knn, PATH=None):
 
     # TODO: add warning if `name` is not implemented.
     if name.lower() == "sphere":
-        X, Y = make_n_sphere(n_obs, dim, emb_dim, knn)
+        X, Y = make_n_sphere_two(n_obs, dim, emb_dim, knn)
         Y = torch.tensor(Y).float()
         train_dataset = torch_dataset(X, Y)
         train_loader = torch.utils.data.DataLoader(
