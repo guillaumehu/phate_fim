@@ -6,6 +6,8 @@ import argparse
 from torchdiffeq import odeint_adjoint as odeint
 from typing import Union, List, Any
 import itertools
+import torch.nn.functional as F
+import numpy as np
 
 sys.path.append("../../")
 from src.models.lit_losses import loss_fn
@@ -26,17 +28,21 @@ class NODE(nn.Module):
         self.method = method
         self.atol = atol
         self.rtol = rtol
+        self.path = []
 
-    def forward(self, x, n_steps=10):
+    def forward(self, x, n_steps=10, end_time=1):
+        self.path =[]
         """
         x (tensor): initial point
         n_steps (int): discretisation steps between the two points"""
         device = x.device
-        t = torch.tensor(list(range(n_steps)), device=device).float()
+        t = torch.tensor(list(np.linspace(0,end_time,n_steps)), device=device).float()
         x = odeint(
             self.fn_ode, x, t, method=self.method, atol=self.atol, rtol=self.rtol
         )
-        return x
+        for time, point in zip(t,x):
+            self.path.append(self.fn_ode(time,point))
+        return x # NOTE add Sigmoid if we do ode on images.
 
 
 class ToyODE(nn.Module):
@@ -88,6 +94,10 @@ class ToyODE(nn.Module):
         self.chain = chain
         self.seq = nn.Sequential(*chain)
         self.n_aug = n_aug
+        self.path = []
+
+    def reset_path(self):
+        self.path = []
 
     def forward(self, t, x):
         # TODO: augmented dimensions.
