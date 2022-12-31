@@ -38,6 +38,8 @@ class LitAutoencoder(pl.LightningModule):
         **kwargs,
     ) -> None:
         
+        
+        self.logp = logp
         #Specify encoder
         super().__init__()
         encoder_layer.insert(0, input_dim)
@@ -47,8 +49,11 @@ class LitAutoencoder(pl.LightningModule):
             encoder.append(nn.Linear(i0, i1))
             if i1 != encoder_layer[-1]:
                 encoder.append(getattr(nn, activation)())
+        if self.logp:
+            encoder.append(nn.Softmax(dim=1))
         self.encoder = nn.Sequential(*encoder)
-
+        
+        print(encoder)
         #Specify decoder
         
         decoder_layer.insert(0, emb_dim)
@@ -69,19 +74,23 @@ class LitAutoencoder(pl.LightningModule):
         self.scale = scale
         self.knn = knn
         self.loss_rec = loss_rec
-        self.logp = logp
+        
         
     def decode(self,x):
         return self.decoder(x)
 
     def encode(self,x):
-        return self.encoder(x)
-
-    def forward(self,x):
         if self.logp:
             x = torch.log(self.encoder(x) + 1e-6)
         else:
-            x = self.encoder(x) # NOTE: 1e-6 to avoid log of 0. 
+            x = self.encoder(x)
+        return x
+
+    def forward(self,x):
+        if self.logp:
+            x = torch.log(self.encoder(x) + 1e-6)# NOTE: 1e-6 to avoid log of 0. 
+        else:
+            x = self.encoder(x) 
         return x #self.decoder(x)
 
     
@@ -110,13 +119,18 @@ class LitAutoencoder(pl.LightningModule):
         sample, target = batch
 
         noise = self.scale * torch.randn(sample.size()).to(sample.device)
-        encoded_sample = self.encode(sample + noise)
+        if self.logp:
+            encoded_sample = self.encode(sample + noise)
+        else:
+            encoded_sample = self.encode(sample + noise)
         decoded_sample = self.decode(encoded_sample)
 
         if self.loss_rec:
             decoded_sample = self.decode(encoded_sample)
         else:
             decoded_sample = torch.tensor(0.0).float().to(sample.device)
+            
+
         
         loss_d, loss_e, loss_r = loss_fn(
             encoded_sample = encoded_sample,
@@ -135,8 +149,6 @@ class LitAutoencoder(pl.LightningModule):
         
         loss = loss_e + loss_d + loss_r # Loss distances and loss embedding
         
-
-    
         
         tensorboard_log = {"train_loss": loss}
         self.log("training_losses", {"loss_d": loss_d, "loss_e": loss_e, "loss": loss})
@@ -174,7 +186,7 @@ class LitDistEncoder(pl.LightningModule):
                 encoder.append(getattr(nn, activation)())
         encoder.append(nn.Softmax(dim=1))
         self.encoder = nn.Sequential(*encoder)
-        
+        print(encoder)
        
         decoder_layer.insert(0, emb_dim)
         decoder=[]
@@ -252,7 +264,6 @@ class LitDistEncoder(pl.LightningModule):
             knn=self.knn,
         )
 
-        print(loss_d)
         loss = loss_d# + loss_e + loss_r # Loss distance
         tensorboard_log = {"train_loss": loss}
         self.log("training_losses", {"loss": loss})

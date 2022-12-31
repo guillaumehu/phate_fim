@@ -5,7 +5,7 @@ import torch
 
 
 def loss_fn(
-    encoded_sample,
+    encoded_sample, 
     decoded_sample,
     sample,
     target,
