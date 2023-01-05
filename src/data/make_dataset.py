@@ -86,7 +86,7 @@ def make_n_sphere_two(n_obs=150, dim=10,emb_dim=2,knn=5):
 def make_tree(n_obs=150, dim=10, emb_dim=2, knn=5):
     """Make a tree dataset. Return a Tensor `requires_grad=True` and tree_phate"""
     n_obs = int(n_obs/5)
-    tree_data, _ = phate.tree.gen_dla(n_dim=dim, n_branch=5, branch_length=n_obs)
+    tree_data, tree_clusters = phate.tree.gen_dla(n_dim=dim, n_branch=5, branch_length=300)
     # if train_dataset:
     #     tree_phate = None
     # else:
@@ -94,7 +94,7 @@ def make_tree(n_obs=150, dim=10, emb_dim=2, knn=5):
     tree_phate = phate_operator.fit_transform(tree_data)
     tree_phate = scipy.stats.zscore(tree_phate) 
 
-    return torch.tensor(tree_data, requires_grad=True).float(), tree_phate
+    return torch.tensor(tree_data, requires_grad=True).float(), tree_phate, tree_clusters
 
 
 class torch_dataset(Dataset):
@@ -123,7 +123,7 @@ def train_dataloader(name, n_obs, dim, emb_dim, batch_size, knn, PATH=None):
         )
 
     elif name.lower() == "tree":
-        X, Y = make_tree(n_obs, dim, emb_dim, knn)
+        X, Y, _ = make_tree(n_obs, dim, emb_dim, knn)
         Y = torch.tensor(Y).float()
         train_dataset = torch_dataset(X, Y)
         train_loader = torch.utils.data.DataLoader(

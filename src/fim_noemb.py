@@ -77,8 +77,8 @@ class FIM:
         
         #Get Jacobian of each sample
         for i in range(self.n_obs):
-            X_sample = self.X[i].float().cuda()    
-            J = torch.autograd.functional.jacobian(fn.cuda(),X_sample).squeeze()
+            X_sample = torch.unsqueeze(self.X[i].float().cuda(),0)    
+            J = torch.autograd.functional.jacobian(self.fn,X_sample).squeeze()
             Jacob[i,:,:] = J.cpu().detach().numpy()
 
         #Get FIM of each sample
@@ -93,18 +93,18 @@ class FIM:
 
             FIMetric[k,:,:] = prod
             
-        return FIMetric
+        return FIMetric, Jacob
     
     def get_volume(self):
         "Computes Volume"
-        fim = self.fit()
+        fim, _ = self.fit()
         V = np.sqrt(np.abs(np.linalg.det(fim)))
         return V
     
     def get_eigs(self):
         
         "Eigendecomposition of FIM"
-        fim = self.fit()
+        fim, _ = self.fit()
         FIMeigvec = np.zeros((self.n_obs,self.in_dims,self.in_dims))
         FIMeigval = np.zeros((self.n_obs,self.in_dims))
         for i in range(self.n_obs):
@@ -117,7 +117,7 @@ class FIM:
     def get_quadform(self,vone):
         "Computes Quadratic form with input vector of size (1,self.in_dims)"
         
-        fim = self.fit()
+        fim, _ = self.fit()
         quadforms = np.zeros((self.n_obs))
         for i in range(self.n_obs):
             quadforms[i] = vone @ fim[i,:,:] @ vone.T
