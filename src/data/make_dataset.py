@@ -32,8 +32,9 @@ def rotation_transform(
 
 
 def make_live_seq(PATH, emb_dim=20, knn=5, label=False):
-    adata_liveseq = sc.read_h5ad(os.path.join(PATH,"Liveseq.h5ad"))
+    #adata_liveseq = sc.read_h5ad(os.path.join(PATH,"Liveseq.h5ad"))
     #adata_rnaseq = sc.read_h5ad(os.path.join(PATH,"scRNA.h5ad"))
+    adata_liveseq = sc.read_h5ad(os.path.join(PATH,"adata_cancer_v2.h5ad"))
     X = adata_liveseq.X
     phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim, knn=knn)
     phate_live_seq = phate_operator.fit_transform(X)
@@ -72,7 +73,8 @@ def make_n_sphere_two(n_obs=150, dim=10,emb_dim=2,knn=5):
     zerovec = np.zeros((n_obs,dim-3)) #add vector of zeros onto first 3 dimensions
     highdsphere = np.concatenate((nsphere,zerovec),axis=1) #Create high-d sphere
     
-    angles = list(np.repeat(90,highdsphere.shape[1]-1)) #can insert angle you wish to rotate sphere by
+    deg = np.random.randint(0,360,1)[0]
+    angles = list(np.repeat(deg,highdsphere.shape[1]-1)) #can insert angle you wish to rotate sphere by
     rotatesphere, _ = rotation_transform(highdsphere, angles)
     
     #run phate on rotated sphere
@@ -85,8 +87,9 @@ def make_n_sphere_two(n_obs=150, dim=10,emb_dim=2,knn=5):
 
 def make_tree(n_obs=150, dim=10, emb_dim=2, knn=5):
     """Make a tree dataset. Return a Tensor `requires_grad=True` and tree_phate"""
-    n_obs = int(n_obs/5)
-    tree_data, tree_clusters = phate.tree.gen_dla(n_dim=dim, n_branch=5, branch_length=300)
+    bl = 300
+    nb= int(n_obs/bl)
+    tree_data, tree_clusters = phate.tree.gen_dla(n_dim=dim, n_branch=nb, branch_length=bl)
     # if train_dataset:
     #     tree_phate = None
     # else:
