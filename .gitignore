@@ -87,3 +87,10 @@ target/
 
 # Mypy cache
 .mypy_cache/
+
+#Ignore saved data and figures
+/notebooks/saved_data
+/notebooks/Figures
+/notebooks/*.pickle
+/notebooks/*.mat
+
