@@ -88,5 +88,7 @@ target/
 # Mypy cache
 .mypy_cache/
 
-
+#Ignore data and figures produced by notebook
+notebooks/saved_data
+notebooks/Figures
 
