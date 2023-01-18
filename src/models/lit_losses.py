@@ -36,10 +36,28 @@ def loss_fn(
             p = kernel / kernel.sum(axis=0)[:, None]
             pt = torch.matrix_power(p, t)
             diff_pot = torch.log(pt)
+                        
+        elif kernel_type.lower() == "ipsc_phate":
+            _, dim = encoded_sample.shape
+            sample_np = sample.detach().cpu().numpy()
+            phate_op = phate.PHATE(random_state=42, verbose=False, n_components=dim, knn=knn,t=250,decay=10).fit(
+                sample_np
+            )
+            diff_pot = torch.tensor(phate_op.diff_potential).float().to(sample.device)
+            
+        elif kernel_type.lower() == "pbmc_phate":
+            _, dim = encoded_sample.shape
+            sample_np = sample.detach().cpu().numpy()
+            phate_op = phate.PHATE(random_state=42, verbose=False, n_components=dim, knn=knn,t=30).fit(
+                sample_np
+            )
+            diff_pot = torch.tensor(phate_op.diff_potential).float().to(sample.device)
+        
 
         phate_dist = torch.cdist(diff_pot, diff_pot)
         encoded_dist = torch.cdist(encoded_sample, encoded_sample)
         loss_d = torch.nn.MSELoss()(encoded_dist, phate_dist)
+        
 
     if loss_emb:
         loss_e = torch.nn.MSELoss()(encoded_sample, target)

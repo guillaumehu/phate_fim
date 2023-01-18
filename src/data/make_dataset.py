@@ -7,6 +7,10 @@ import torch
 from torch.utils.data import Dataset
 import scipy
 import scanpy as sc
+import pickle
+import scipy.io as sio
+from sklearn.decomposition import PCA
+
 
 def rotation_transform(
     X : np.ndarray, # The input matrix, of size n x d (d is # dimensions)
@@ -100,6 +104,47 @@ def make_tree(n_obs=150, dim=10, emb_dim=2, knn=5):
     return torch.tensor(tree_data, requires_grad=True).float(), tree_phate, tree_clusters
 
 
+
+def make_ipsc(n_obs=150,emb_dim=2,knn=5,indx=None):
+    
+    #load data
+    initdir = os.getcwd()
+    os.chdir(os.path.abspath('..') + '/src/data')
+    X = sio.loadmat('ipscData.mat')['data']
+    os.chdir(initdir)
+    ipsc_data = X[indx,:].squeeze()
+    
+    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim, knn=knn,t=250,decay=10)
+    ipsc_phate = phate_operator.fit_transform(ipsc_data) #only compute on 100 points since it's so expensive for > 6000
+    ipsc_phate = scipy.stats.zscore(ipsc_phate) 
+    
+    return torch.tensor(ipsc_data, requires_grad=True).float(), ipsc_phate
+
+def make_pbmc(n_obs=150,emb_dim=2,knn=5,indx=None):
+    
+    #extract PMBC data size/dimensions
+    
+    #load data
+    initdir = os.getcwd()
+    os.chdir(os.path.abspath('..') + '/src/data')
+    with open('pbmc.pickle','rb') as f:
+        X = pickle.load(f).values.squeeze()
+    os.chdir(initdir)
+    iX = X[indx,:]
+    
+    #perform PCA
+    pca = PCA(n_components=25)
+    pca.fit(iX)
+    pbmc_data = iX @ pca.components_.T
+
+
+    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim, knn=knn,t=30)    
+    pbmc_phate = phate_operator.fit_transform(pbmc_data)
+    pbmc_phate = scipy.stats.zscore(pbmc_phate) 
+    
+    return torch.tensor(pbmc_data, requires_grad=True).float(), pbmc_phate
+    
+
 class torch_dataset(Dataset):
     def __init__(self, X, Y) -> None:
         self.X = X
@@ -113,7 +158,7 @@ class torch_dataset(Dataset):
         return sample, target
 
 
-def train_dataloader(name, n_obs, dim, emb_dim, batch_size, knn, PATH=None):
+def train_dataloader(name, n_obs, dim, emb_dim, batch_size, knn, PATH=None,indx=None):
     """Create a Torch data loader for training."""
 
     # TODO: add warning if `name` is not implemented.
@@ -140,7 +185,24 @@ def train_dataloader(name, n_obs, dim, emb_dim, batch_size, knn, PATH=None):
         train_loader = torch.utils.data.DataLoader(
             dataset=train_dataset, batch_size=batch_size, shuffle=True
         )
-
+        
+    elif name.lower() == "ipsc":
+        X, Y = make_ipsc(n_obs=n_obs,emb_dim=2,knn=5,indx=indx)
+        Y = torch.tensor(Y).float()
+        train_dataset = torch_dataset(X, Y)
+        train_loader = torch.utils.data.DataLoader(
+            dataset=train_dataset, batch_size=batch_size, shuffle=True
+        )
+        
+    elif name.lower() == "pbmc":
+        X, Y = make_pbmc(n_obs=n_obs,emb_dim=2,knn=5,indx=indx)
+        Y = torch.tensor(Y).float()
+        train_dataset = torch_dataset(X, Y)
+        train_loader = torch.utils.data.DataLoader(
+            dataset=train_dataset, batch_size=batch_size, shuffle=True
+        )
+        
+        
     return train_loader
 
 
