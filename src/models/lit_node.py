@@ -8,6 +8,7 @@ from typing import Union, List, Any
 import itertools
 import torch.nn.functional as F
 import numpy as np
+from math import pi
 
 sys.path.append("../../")
 from src.models.lit_losses import loss_fn
@@ -28,20 +29,29 @@ class NODE(nn.Module):
         self.method = method
         self.atol = atol
         self.rtol = rtol
-        self.path = []
+        self.lenght = 0.0
+        # if we want to add a network after the neural ode.
+        #self.net = nn.Sequential(nn.Linear(2,40),nn.LeakyReLU(),nn.Linear(40,40),nn.LeakyReLU(),nn.Linear(40,2)) 
 
     def forward(self, x, n_steps=10, end_time=1):
-        self.path =[]
+        self.path = []
         """
         x (tensor): initial point
         n_steps (int): discretisation steps between the two points"""
         device = x.device
+        # TODO add one dimension to keep track of the lenght.
+        #zero = torch.tensor([[0]]).to(device)
+        #x = torch.hstack((x,zero))
         t = torch.tensor(list(np.linspace(0,end_time,n_steps)), device=device).float()
         x = odeint(
             self.fn_ode, x, t, method=self.method, atol=self.atol, rtol=self.rtol
         )
+
         for time, point in zip(t,x):
             self.path.append(self.fn_ode(time,point))
+        #TODO: change the last activation function.
+        #x = torch.tanh(torch.tensor([0.2])*x)
+        #return torch.tensor([pi/2,pi])*x + torch.tensor([pi/2,pi])
         return x # NOTE add Sigmoid if we do ode on images.
 
 
@@ -64,15 +74,17 @@ class ToyODE(nn.Module):
 
     def __init__(
         self,
+        #metric,
         feature_dims: int = 5,
         layers: List[int] = [64],
         activation: str = "ReLU",
         n_aug: int = 0,
-        batch_norm: bool = False,
+        metric = lambda x: 0.0*torch.rand((x.shape[0],x.shape[1],x.shape[1])),
+        sqrt_metric=False
     ):
         super().__init__()
         steps = [
-            feature_dims + n_aug + 1,
+            feature_dims + n_aug + 1, # +1 for time 
             *layers,
             feature_dims,
         ]  # NOTE added n_aug in the last layer.
@@ -88,26 +100,32 @@ class ToyODE(nn.Module):
                 )
             )
         )[:-1]
-        if batch_norm:
-            chain.insert(0, nn.BatchNorm1d(feature_dims + n_aug + 1))
 
         self.chain = chain
         self.seq = nn.Sequential(*chain)
         self.n_aug = n_aug
         self.path = []
+        self.metric = metric
+        self.cost = 0.0
+        self.sqrt_metric=sqrt_metric
 
-    def reset_path(self):
-        self.path = []
+    def reset_cost(self):
+        self.cost = 0.0
 
     def forward(self, t, x):
-        # TODO: augmented dimensions.
+        # last col of x is the metric loss, i.e. x[:,-1].
         # NOTE the forward pass when we use torchdiffeq must be forward(self,t,x)
-        # zero = torch.tensor([0]).to(x.device)
-        # zeros = zero.repeat(x.size()[0],self.n_aug)
+        position = x[:,:-1] 
         time = t.repeat(x.size()[0], 1)
-        aug = torch.cat((x, time), dim=1)
+        aug = torch.cat((position, time), dim=1)
         x = self.seq(aug)
-        # if self.alpha is not None:
-        #     z = torch.randn(x.size(),requires_grad=False).to(x.device)
-        # dxdt = x + z*self.alpha[int(t-1)] if self.alpha is not None else x
-        return x
+
+        # current cost
+
+        c = torch.matmul(torch.matmul(x.unsqueeze(1),self.metric(position)),x.unsqueeze(1).transpose(1,2)).squeeze(-1)
+        c = torch.sqrt(c) if self.sqrt_metric else c 
+        self.cost += torch.mean(c)
+        x = torch.hstack((x,c))
+        return x 
+
+
