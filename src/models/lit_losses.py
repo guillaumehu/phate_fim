@@ -2,6 +2,29 @@
 
 import phate
 import torch
+import sys
+
+def computeJSD(X):
+
+    jsd = torch.zeros((X.shape[0],X.shape[0]))
+    for i in range(X.shape[0]):
+
+        p = X[i,:]
+        q = X
+        m = (0.5 * (p.exp() + q.exp()))
+        
+
+        kone = 0.5 *( (p.exp() * (p - m.log() ) ).sum(dim=1))
+        ktwo = 0.5 *( (q.exp() * (q - m.log() ) ).sum(dim=1))
+        k = kone + ktwo
+
+        jsd[i,:] = k
+     
+    jsd.fill_diagonal_(0) #setting diagonal to 0 to avoid nan's
+
+        
+            
+    return jsd.to('cuda')
 
 
 def loss_fn(
@@ -40,7 +63,7 @@ def loss_fn(
         elif kernel_type.lower() == "ipsc_phate":
             _, dim = encoded_sample.shape
             sample_np = sample.detach().cpu().numpy()
-            phate_op = phate.PHATE(random_state=42, verbose=False, n_components=dim, knn=knn,t=250,decay=10).fit(
+            phate_op = phate.PHATE(verbose=False, n_components=dim, knn=knn,t=250,decay=10).fit(
                 sample_np
             )
             diff_pot = torch.tensor(phate_op.diff_potential).float().to(sample.device)
@@ -48,21 +71,30 @@ def loss_fn(
         elif kernel_type.lower() == "pbmc_phate":
             _, dim = encoded_sample.shape
             sample_np = sample.detach().cpu().numpy()
-            phate_op = phate.PHATE(random_state=42, verbose=False, n_components=dim, knn=knn,t=30).fit(
+            phate_op = phate.PHATE(verbose=False, n_components=dim, knn=knn,t=30).fit(
                 sample_np
             )
             diff_pot = torch.tensor(phate_op.diff_potential).float().to(sample.device)
         
 
-        phate_dist = torch.cdist(diff_pot, diff_pot)
-        encoded_dist = torch.cdist(encoded_sample, encoded_sample)
-        loss_d = torch.nn.MSELoss()(encoded_dist, phate_dist)
+        #phate_dist = torch.cdist(diff_pot, diff_pot)
+        #encoded_dist = torch.cdist(encoded_sample, encoded_sample)
+        #loss_d = torch.nn.MSELoss()(encoded_dist, phate_dist)
+
         
+        #JSD loss
+        phate_dist = torch.sqrt( torch.abs(computeJSD(diff_pot)) )
+        encoded_dist = torch.sqrt( torch.abs(computeJSD(encoded_sample)) )
+        loss_d = torch.nn.MSELoss()(encoded_dist, phate_dist)
+
+    
 
     if loss_emb:
         loss_e = torch.nn.MSELoss()(encoded_sample, target)
     if loss_recon:
         loss_r = torch.nn.MSELoss()(decoded_sample, sample)
+        
+     
         
     return loss_d, loss_e, loss_r
 
