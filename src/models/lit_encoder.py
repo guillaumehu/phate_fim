@@ -49,8 +49,8 @@ class LitAutoencoder(pl.LightningModule):
             encoder.append(nn.Linear(i0, i1))
             if i1 != encoder_layer[-1]:
                 encoder.append(getattr(nn, activation)())
-        if self.logp:
-            encoder.append(nn.Softmax(dim=1))
+        
+        encoder.append(nn.Softmax(dim=1))
         self.encoder = nn.Sequential(*encoder)
         
         print(encoder)

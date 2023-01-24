@@ -93,7 +93,8 @@ def make_tree(n_obs=150, dim=10, emb_dim=2, knn=5):
     """Make a tree dataset. Return a Tensor `requires_grad=True` and tree_phate"""
     bl = 300
     nb= int(n_obs/bl)
-    tree_data, tree_clusters = phate.tree.gen_dla(n_dim=dim, n_branch=nb, branch_length=bl)
+    #tree_data, tree_clusters = phate.tree.gen_dla(n_dim=dim, n_branch=nb, branch_length=bl)
+    tree_data, tree_clusters = phate.tree.gen_dla(n_dim=10, n_branch=8, branch_length=200)
     # if train_dataset:
     #     tree_phate = None
     # else:
@@ -133,7 +134,7 @@ def make_pbmc(n_obs=150,emb_dim=2,knn=5,indx=None):
     iX = X[indx,:]
     
     #perform PCA
-    pca = PCA(n_components=25)
+    pca = PCA(n_components=15)
     pca.fit(iX)
     pbmc_data = iX @ pca.components_.T
 
