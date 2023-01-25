@@ -99,7 +99,7 @@ def loss_fn(
         elif kernel_type.lower() == "pbmc_phate":
             _, dim = encoded_sample.shape
             sample_np = sample.detach().cpu().numpy()
-            phate_op = phate.PHATE(verbose=False, n_components=dim, knn=knn,t=150).fit(
+            phate_op = phate.PHATE(verbose=False, n_components=dim, knn=knn,t=50).fit(
                 sample_np
             )
             diff_pot = torch.tensor(phate_op.diff_potential).float().to(sample.device)

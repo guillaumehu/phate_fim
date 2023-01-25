@@ -134,7 +134,7 @@ def make_pbmc(n_obs=150,emb_dim=2,knn=5,indx=None):
     iX = X[indx,:]
     
     #perform PCA
-    pca = PCA(n_components=15)
+    pca = PCA(n_components=10)
     pca.fit(iX)
     pbmc_data = iX @ pca.components_.T
 

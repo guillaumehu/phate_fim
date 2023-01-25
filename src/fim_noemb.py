@@ -94,6 +94,106 @@ class FIM:
             FIMetric[k,:,:] = prod
             
         return FIMetric, Jacob
+
+    
+    def get_volume(self):
+        "Computes Volume"
+        fim, _ = self.fit()
+        V = np.sqrt(np.abs(np.linalg.det(fim)))
+        return V
+    
+    def get_eigs(self):
+        
+        "Eigendecomposition of FIM"
+        fim, _ = self.fit()
+        FIMeigvec = np.zeros((self.n_obs,self.in_dims,self.in_dims))
+        FIMeigval = np.zeros((self.n_obs,self.in_dims))
+        for i in range(self.n_obs):
+            eigval, eigvec = np.linalg.eig(fim[i])
+            FIMeigvec[i,:,:] = eigvec
+            FIMeigval[i,:] = eigval
+        return FIMeigval, FIMeigvec
+    
+  
+    def get_quadform(self,vone):
+        "Computes Quadratic form with input vector of size (1,self.in_dims)"
+        
+        fim, _ = self.fit()
+        quadforms = np.zeros((self.n_obs))
+        for i in range(self.n_obs):
+            quadforms[i] = vone @ fim[i,:,:] @ vone.T
+        
+        return quadforms
+    
+class FIM_torch:
+    def __init__(self,X,fn,n_obs,in_dims,out_dims,X_out):
+        self.X = X
+        self.fn = fn
+        self.n_obs = n_obs
+        self.in_dims = in_dims
+        self.out_dims = out_dims
+        self.X_out = X_out
+        
+    def fit(self):
+        "Computes Fisher information metric"
+        
+        #Initializae Jacobian matrix
+        Jacob  = torch.zeros((self.n_obs,self.out_dims,self.in_dims)).cuda()
+        
+        #Get Jacobian of each sample
+        for i in range(self.n_obs):
+            X_sample = torch.unsqueeze(self.X[i].float().cuda(),0)    
+            J = torch.autograd.functional.jacobian(self.fn,X_sample).squeeze()
+            Jacob[i,:,:] = J
+
+        #Get FIM of each sample
+        FIMetric = torch.zeros((self.n_obs,self.in_dims,self.in_dims)).cuda() #FIM is square matrix of size of original dimensions
+        for k in range(self.n_obs):
+            prod = torch.empty((self.in_dims,self.in_dims)).cuda() #Initialize empty FIM
+
+            #Compute FIM
+            for i in range(self.in_dims):
+                for j in range(self.in_dims):
+                    prod[i,j] = torch.sum(Jacob[k,:,i] * Jacob[k,:,j] *torch.exp(self.X_out[k,:].float().cuda()))
+
+            FIMetric[k,:,:] = prod
+            
+        return FIMetric
+    
+class FIM_cpu:
+    def __init__(self,X,fn,n_obs,in_dims,out_dims,X_out):
+        self.X = X
+        self.fn = fn
+        self.n_obs = n_obs
+        self.in_dims = in_dims
+        self.out_dims = out_dims
+        self.X_out = X_out
+        
+    def fit(self):
+        "Computes Fisher information metric"
+        
+        #Initializae Jacobian matrix
+        Jacob  = torch.zeros((self.n_obs,self.out_dims,self.in_dims)).cpu()
+        
+        #Get Jacobian of each sample
+        for i in range(self.n_obs):
+            X_sample = torch.unsqueeze(self.X[i].float().cpu(),0)    
+            J = torch.autograd.functional.jacobian(self.fn,X_sample).squeeze()
+            Jacob[i,:,:] = J
+
+        #Get FIM of each sample
+        FIMetric = torch.zeros((self.n_obs,self.in_dims,self.in_dims)).cpu() #FIM is square matrix of size of original dimensions
+        for k in range(self.n_obs):
+            prod = torch.empty((self.in_dims,self.in_dims)).cpu() #Initialize empty FIM
+
+            #Compute FIM
+            for i in range(self.in_dims):
+                for j in range(self.in_dims):
+                    prod[i,j] = torch.sum(Jacob[k,:,i] * Jacob[k,:,j] *torch.exp(self.X_out[k,:].float().cpu()))
+
+            FIMetric[k,:,:] = prod
+            
+        return FIMetric
     
     def get_volume(self):
         "Computes Volume"
