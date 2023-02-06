@@ -139,7 +139,7 @@ def make_pbmc(n_obs=150,emb_dim=2,knn=5,indx=None):
     pbmc_data = iX @ pca.components_.T
 
 
-    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim, knn=knn,t=30)    
+    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim, knn=knn)    
     pbmc_phate = phate_operator.fit_transform(pbmc_data)
     pbmc_phate = scipy.stats.zscore(pbmc_phate) 
     
