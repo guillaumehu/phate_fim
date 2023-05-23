@@ -111,6 +111,7 @@ def loss_fn(
         #loss_d = torch.nn.MSELoss()(encoded_dist, phate_dist)
         
         #JSD loss
+
         phate_dist = torch.sqrt( torch.abs(computeJSD(diff_op + 1e-7)) )       
         encoded_dist = torch.sqrt( torch.abs(computeJSD(encoded_sample + 1e-7)) )
         loss_d = torch.nn.MSELoss()(encoded_dist, phate_dist)

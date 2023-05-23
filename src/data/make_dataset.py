@@ -9,7 +9,9 @@ import scipy
 import scanpy as sc
 import pickle
 import scipy.io as sio
+import sklearn
 from sklearn.decomposition import PCA
+from sklearn.manifold import Isomap
 
 
 def rotation_transform(
@@ -144,6 +146,23 @@ def make_pbmc(n_obs=150,emb_dim=2,knn=5,indx=None):
     pbmc_phate = scipy.stats.zscore(pbmc_phate) 
     
     return torch.tensor(pbmc_data, requires_grad=True).float(), pbmc_phate
+
+def make_swiss(n_obs=150, emb_dim=2,knn=5):
+    
+    swiss_data = sklearn.datasets.make_swiss_roll(n_samples=n_obs)[0]
+    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=emb_dim, knn=knn)
+    swiss_phate = phate_operator.fit_transform(swiss_data) #only compute on 100 points since it's so expensive for > 6000
+    swiss_phate = scipy.stats.zscore(swiss_phate) 
+    
+    return torch.tensor(swiss_data, requires_grad=True).float(), swiss_phate
+
+def make_swiss_exp():
+    
+    swiss_data = np.load("swiss_roll_exp.npy")
+    phate_operator = phate.PHATE(random_state=42, verbose=False, n_components=2, knn=3)
+    swiss_phate = phate_operator.fit_transform(swiss_data) #only compute on 100 points since it's so expensive for > 6000
+    swiss_phate = scipy.stats.zscore(swiss_phate) 
+    return torch.tensor(swiss_data,requires_grad=True).float(), swiss_phate
     
 
 class torch_dataset(Dataset):
@@ -202,6 +221,23 @@ def train_dataloader(name, n_obs, dim, emb_dim, batch_size, knn, PATH=None,indx=
         train_loader = torch.utils.data.DataLoader(
             dataset=train_dataset, batch_size=batch_size, shuffle=True
         )
+        
+    elif name.lower() == "swiss_roll":
+        X, Y = make_swiss(n_obs=n_obs,emb_dim=2,knn=5)
+        Y = torch.tensor(Y).float()
+        train_dataset = torch_dataset(X, Y)
+        train_loader = torch.utils.data.DataLoader(
+            dataset=train_dataset, batch_size=batch_size, shuffle=True
+        )
+        
+    elif name.lower() == "swiss_roll_exp":
+        X, Y = make_swiss_exp()
+        Y = torch.tensor(Y).float()
+        train_dataset = torch_dataset(X, Y)
+        train_loader = torch.utils.data.DataLoader(
+            dataset=train_dataset, batch_size=batch_size, shuffle=True
+        )
+        
         
         
     return train_loader

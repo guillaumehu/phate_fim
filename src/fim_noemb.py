@@ -62,7 +62,7 @@ class FIM_noemb:
     
 class FIM:
     def __init__(self,X,fn,n_obs,in_dims,out_dims,X_out):
-        self.X = X
+        self.X = X 
         self.fn = fn
         self.n_obs = n_obs
         self.in_dims = in_dims
