@@ -93,10 +93,9 @@ def make_n_sphere_two(n_obs=150, dim=10,emb_dim=2,knn=5):
 
 def make_tree(n_obs=150, dim=10, emb_dim=2, knn=5):
     """Make a tree dataset. Return a Tensor `requires_grad=True` and tree_phate"""
-    bl = 300
-    nb= int(n_obs/bl)
-    #tree_data, tree_clusters = phate.tree.gen_dla(n_dim=dim, n_branch=nb, branch_length=bl)
-    tree_data, tree_clusters = phate.tree.gen_dla(n_dim=10, n_branch=8, branch_length=200)
+ 
+    branch_length = int(n_obs/n_branch)
+    tree_data, tree_clusters = phate.tree.gen_dla(n_dim=10, n_branch=n_branch, branch_length=branch_length)
     # if train_dataset:
     #     tree_phate = None
     # else:
