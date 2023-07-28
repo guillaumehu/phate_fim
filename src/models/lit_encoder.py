@@ -92,7 +92,6 @@ class LitAutoencoder(pl.LightningModule):
         else:
             x = self.encoder(x) 
         return x #self.decoder(x)
-
     
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -104,13 +103,11 @@ class LitAutoencoder(pl.LightningModule):
             help="List of layers excluding the input dimension. Default to `[10,10,10]`. In the command line, it takes values separated by a comma, e.g. `10,10,10`.",
         )
         parser.add_argument("--activation", type=str, default="ReLU")
-        parser.add_argument("--kernel_type", type=str, default="decay")
-        parser.add_argument(
-            "--loss_emb", default=True, action=argparse.BooleanOptionalAction
-        )
+        parser.add_argument("--kernel_type", type=str, default="phate")
+        parser.add_argument("--loss", type=str, default="loss_dist")
         parser.add_argument("--decoder", action='store_true')
         return parent_parser
-
+    
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.lr)
